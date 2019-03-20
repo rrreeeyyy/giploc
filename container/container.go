@@ -1,19 +1,56 @@
+// +build linux
 package container
 
 import (
+	"os"
+	"os/exec"
+	"syscall"
+
+	"github.com/opencontainers/runtime-spec/specs-go"
+
 	"github.com/urfave/cli"
 )
 
-type Container interface {
-	ID() string
-	Start(process *Process) (err error)
-	Run(process *Process) (err error)
-}
+func Create(cli *cli.Context, spec *specs.Spec) (int, error) {
+	cmd := exec.Command("/proc/self/exe", "init")
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Cloneflags: syscall.CLONE_NEWIPC |
+			syscall.CLONE_NEWNET |
+			syscall.CLONE_NEWNS |
+			syscall.CLONE_NEWPID |
+			syscall.CLONE_NEWUSER |
+			syscall.CLONE_NEWUTS,
+		UidMappings: []syscall.SysProcIDMap{
+			{
+				ContainerID: 0,
+				HostID:      os.Getuid(),
+				Size:        1,
+			},
+		},
+		GidMappings: []syscall.SysProcIDMap{
+			{
+				ContainerID: 0,
+				HostID:      os.Getgid(),
+				Size:        1,
+			},
+		},
+	}
 
-func Start(cli *cli.Context, args string) (int, error) {
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		return cmd.ProcessState.ExitCode(), err
+	}
+
 	return 0, nil
 }
 
-func SetupSpec(context *cli.Context) (string, error) {
-	return "", nil
+func Start(cli *cli.Context, spec *specs.Spec) (int, error) {
+	return 0, nil
+}
+
+func Initialization() error {
+	return nil
 }
